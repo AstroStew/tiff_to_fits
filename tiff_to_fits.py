@@ -81,7 +81,7 @@ def gui():
                                'Exposure Time': values['exptime'],
                                'Over Write Meta': values['overwrite_meta']
                                }
-                convert_image(camera_params,values['flat_img_dir'],values['light_img_dir'],values['dark_img_dir'],values['bias_img_dir'])
+                convert_image(camera_params,values['light_img_dir'],values['flat_img_dir'],values['dark_img_dir'],values['bias_img_dir'])
                 
             elif values['file_params_bool'] is True:
                 # Read File
@@ -124,15 +124,15 @@ def convert_image(camera_params,light_img_directory,flat_image_directory,dark_im
                 
                 
                 # Set from Camera_Params
-                fits_image.header['XBINNING']=camera_params['Xbinning']
-                fits_image.header['YBINNING']=camera_params['Ybinning']
+                fits_image.header['XBINNING']=int(camera_params['Xbinning'])
+                fits_image.header['YBINNING']=int(camera_params['Ybinning'])
                 fits_image.header['FILTER']=camera_params['Filter']
-                fits_image.header['XPIXSZ']=camera_params['Pixel Size']
-                fits_image.header['YPIXSZ']=camera_params['Pixel Size']
-                fits_image.header['EXPTIME']=camera_params['Exposure Time']
-                fits_image.header['EGIAN']=camera_params['Gain']
-                fits_image.header['SITELAT']=camera_params['Latitude']
-                fits_image.header['SITELONG']=camera_params['Longitude']
+                fits_image.header['XPIXSZ']=float(camera_params['Pixel Size'])
+                fits_image.header['YPIXSZ']=float(camera_params['Pixel Size'])
+                fits_image.header['EXPTIME']=float(camera_params['Exposure Time'])
+                fits_image.header['EGAIN']=float(camera_params['Gain'])
+                fits_image.header['SITELAT']=float(camera_params['Latitude'])
+                fits_image.header['SITELONG']=float(camera_params['Longitude'])
                 
                 
                 
@@ -150,11 +150,11 @@ def convert_image(camera_params,light_img_directory,flat_image_directory,dark_im
                 
                 
                 
-                if meta_dict.has_key('FocalLength') and camera_params['Over Write Meta'] is False:
+                if  'FocalLength' in meta_dict.keys() and camera_params['Over Write Meta'] is False:
                     fits_image.header['FOCALLEN']=meta_dict['FocalLength']
-                if meta_dict.has_key('ExposureTime') and camera_params['Over Write Meta'] is False: 
+                if 'ExposureTime' in meta_dict.keys() and camera_params['Over Write Meta'] is False:
                     fits_image.header['EXPTIME']=meta_dict['ExposureTime']
-                if meta_dict.has_key('ExposureTime') and camera_params['Over Write Meta'] is False: 
+                if 'ExposureTime' in meta_dict.keys() and camera_params['Over Write Meta'] is False:
                     fits_image.header['EXPTIME']=meta_dict['ExposureTime']
                 
                 
@@ -169,7 +169,7 @@ def convert_image(camera_params,light_img_directory,flat_image_directory,dark_im
                     fits_image.header['IMAGETYP']='BIAS'
                 
                 
-                fits_image.writeto(os.path.join(root,os.path.basename(file),'.fits'))
+                fits_image.writeto(os.path.join(root,file.split('.')[0]+'.fits'))
                 
                 
 GUI= gui()            
