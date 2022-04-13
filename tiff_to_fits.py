@@ -11,7 +11,7 @@ import os.path
 
 from astropy.nddata import CCDData
 from pathlib import Path
-from PIL import Image,TiffTags,ExifTags
+from PIL import Image, TiffTags, ExifTags
 from tqdm import tqdm
 from itertools import chain
 from astropy.io import fits
@@ -20,8 +20,7 @@ from astropy.io import fits
 def gui():
     windowopen = False
     sg.theme("Default1")
-    
-    
+
     inputcameraparams_tab=[[sg.Text('Define Parameters'),
                             
                             sg.Radio("Input","RADIO2",default=True,key='defined_params_bool'),
@@ -90,12 +89,6 @@ def gui():
                     file = reader.read()
                     for line in file:
                         camera_params[line.split(':')[0]]=line.split(':')[1]
-                        
-                        
-                        
-                        
-                        
-                
                 #TODO: Ceate Standard for File
                 
             
@@ -126,17 +119,13 @@ def convert_image(camera_params,light_img_directory,flat_image_directory,dark_im
                 # Set from Camera_Params
                 fits_image.header['XBINNING']=int(camera_params['Xbinning'])
                 fits_image.header['YBINNING']=int(camera_params['Ybinning'])
-                fits_image.header['FILTER']=camera_params['Filter']
+                fits_image.header['FILTER']=str(camera_params['Filter'])
                 fits_image.header['XPIXSZ']=float(camera_params['Pixel Size'])
                 fits_image.header['YPIXSZ']=float(camera_params['Pixel Size'])
                 fits_image.header['EXPTIME']=float(camera_params['Exposure Time'])
                 fits_image.header['EGAIN']=float(camera_params['Gain'])
                 fits_image.header['SITELAT']=float(camera_params['Latitude'])
                 fits_image.header['SITELONG']=float(camera_params['Longitude'])
-                
-                
-                
-                
                 
                 # Extracts Meta information to Store in Dictionary  
                 meta_dict={}
@@ -156,6 +145,8 @@ def convert_image(camera_params,light_img_directory,flat_image_directory,dark_im
                     fits_image.header['EXPTIME']=meta_dict['ExposureTime']
                 if 'ExposureTime' in meta_dict.keys() and camera_params['Over Write Meta'] is False:
                     fits_image.header['EXPTIME']=meta_dict['ExposureTime']
+
+                # TODO: Add More Search Tags
                 
                 
                 # FITS FILE TYPE
@@ -172,4 +163,4 @@ def convert_image(camera_params,light_img_directory,flat_image_directory,dark_im
                 fits_image.writeto(os.path.join(root,file.split('.')[0]+'.fits'))
                 
                 
-GUI= gui()            
+GUI= gui()
