@@ -8,6 +8,7 @@ Created on Sun Apr  3 12:10:15 2022
 import PySimpleGUI as sg
 import os
 import os.path
+import datetime
 
 from astropy.nddata import CCDData
 from pathlib import Path
@@ -15,6 +16,8 @@ from PIL import Image, TiffTags, ExifTags
 from tqdm import tqdm
 from itertools import chain
 from astropy.io import fits
+from astropy.coordinates import EarthLocation, AltAz, SkyCoord
+
 
 
 def gui():
@@ -36,6 +39,7 @@ def gui():
                            [sg.T("Focal Length (mm):"), sg.InputText('952',key='focal_len')],
                            [sg.T("Gain (e/ADU):"),sg.InputText('1',key='egain')],
                            [sg.T("Exposure Time(s)"),sg.InputText('5',key='exptime')],
+                           [sg.T("Temperature"),sg.InputText('-10',key='temperature')],
                            [sg.T("Filter(i.e B,G,R,V)"),sg.InputText('V',key='filter')],
                            
                            [sg.Text("Camera Params file"),sg.Input
@@ -58,8 +62,18 @@ def gui():
                            [sg.Button('Convert'),sg.Cancel()]
                            
                           ]
+    update_tab=[[sg.Text("Fits Folder"),
+                sg.Input(r'',
+                key='fits_folder',change_submits=True),sg.FolderBrowse(key='fits_folder2')],
+               [sg.Button('Update Fits'),sg.Cancel()]]
+
+    layout= [[sg.TabGroup([[sg.Tab("Inputs Tiff Files",inputcameraparams_tab),
+               sg.Tab("Update Fits Files",update_tab)
+    ]])]]
+
+    #sg.TabGroup([[sg.Tab("Inputs Tiff Files",inputcameraparams_tab),sg.Tab("Inputs Fits Files",update_tab)]]
     if windowopen is False:
-        window=sg.Window('Tiff to fits',inputcameraparams_tab)
+        window=sg.Window('Program',layout)
         windowopen = True
     while True:
         window.Refresh()
@@ -78,7 +92,8 @@ def gui():
                                'Ybinning': values['ybinning'],
                                'Pixel Size': values['pix_size'],
                                'Exposure Time': values['exptime'],
-                               'Over Write Meta': values['overwrite_meta']
+                               'Over Write Meta': values['overwrite_meta'],
+                               'Temperature': values['temperature']
                                }
                 convert_image(camera_params,values['light_img_dir'],values['flat_img_dir'],values['dark_img_dir'],values['bias_img_dir'])
                 
@@ -91,14 +106,26 @@ def gui():
                         camera_params[line.split(':')[0]]=line.split(':')[1]
                 #TODO: Ceate Standard for File
                 
-            
+        if event=="Update Fits":
+            update_fits(values['fits_folder'])
             
             
         if event == sg.WIN_CLOSED or event == "Exit":
             window.close()
-            break 
+            break
+
         
 def convert_image(camera_params,light_img_directory,flat_image_directory,dark_image_directory,bias_image_directory):
+    '''
+
+    :param camera_params: type dict: describes the parameters described int he GUI
+    :param light_img_directory: string/Path: described the directory for the light images
+    :param flat_image_directory: string/Path: described the directory for the flat images
+    :param dark_image_directory: string/Path: describes the directory for the dark images
+    :param bias_image_directory: string/Pat: described the directory for the bias images
+    :return:
+    '''
+
     file_suffix=(".tiff",".tif")
     
     validdirs=[directory for directory in [light_img_directory,flat_image_directory,dark_image_directory,bias_image_directory] if (directory != '' and os.path.exists(directory))]
@@ -110,12 +137,12 @@ def convert_image(camera_params,light_img_directory,flat_image_directory,dark_im
         for file in tqdm(files):
             if file.endswith(file_suffix):
                 fits_image= fits.PrimaryHDU(data=Image.open(os.path.join(root,file)))
-                
-                # Search through exif to find Exposure, 
+
+                # Search through exif to find Exposure,
                 img = Image.open(os.path.join(root,file))
                 exifdata=img.getexif()
-                
-                
+
+
                 # Set from Camera_Params
                 fits_image.header['XBINNING']=int(camera_params['Xbinning'])
                 fits_image.header['YBINNING']=int(camera_params['Ybinning'])
@@ -126,8 +153,8 @@ def convert_image(camera_params,light_img_directory,flat_image_directory,dark_im
                 fits_image.header['EGAIN']=float(camera_params['Gain'])
                 fits_image.header['SITELAT']=float(camera_params['Latitude'])
                 fits_image.header['SITELONG']=float(camera_params['Longitude'])
-                
-                # Extracts Meta information to Store in Dictionary  
+
+                # Extracts Meta information to Store in Dictionary
                 meta_dict={}
                 for tag_id in exifdata:
                     tag=ExifTags.TAGS.get(tag_id,tag_id)
@@ -136,19 +163,35 @@ def convert_image(camera_params,light_img_directory,flat_image_directory,dark_im
                         data.decode()
                     meta_dict[tag]= data
                 img.close()
-                
-                
-                
+
+
+
                 if  'FocalLength' in meta_dict.keys() and camera_params['Over Write Meta'] is False:
                     fits_image.header['FOCALLEN']=meta_dict['FocalLength']
                 if 'ExposureTime' in meta_dict.keys() and camera_params['Over Write Meta'] is False:
                     fits_image.header['EXPTIME']=meta_dict['ExposureTime']
-                if 'ExposureTime' in meta_dict.keys() and camera_params['Over Write Meta'] is False:
-                    fits_image.header['EXPTIME']=meta_dict['ExposureTime']
+                if 'XResolution' in meta_dict.keys() and camera_params['Over Write Meta'] is False:
+                    fits_image.header['XBINNING']=int(meta_dict['XResolution'])
+                if 'YResolution' in meta_dict.keys() and camera_params['Over Write Meta'] is False:
+                    fits_image.header['YBINNING'] = int(meta_dict['YResolution'])
+                if 'DateTimeOriginal' in meta_dict.keys() and camera_params['Over Write Meta'] is False:
+                    # TODO: Check Format
+                    fits_image.header['DATE'] = meta_dict['DateTimeOriginal']
+                elif 'DateTimeOriginal' not in meta_dict.keys() and camera_params['Over Write Meta'] is False:
+                    try:
+                        # Set the Observation time to Modification Time
+                        m_time=os.path.getmtime(os.path.join(root,file))
+                        dt_m=datetime.datetime.fromtimestamp(m_time)
+                        fits_image.header['DATE'] = dt_m.strftime('%Y-%m-%d:%H:%M:%S')
+                    except:
+                        print("Could Not Find DateTime Original Exif Key or Modification Time of the file")
+                        manual_date=sg.popup_get_text('Input Time of Observation','YYYY-MM-DD:HH:MM:SS[.ssss]')
+                        fits_image.header['DATE'] = manual_date
+
 
                 # TODO: Add More Search Tags
-                
-                
+
+
                 # FITS FILE TYPE
                 if root==light_img_directory:
                     fits_image.header['IMAGETYP']='LIGHT'
@@ -158,9 +201,11 @@ def convert_image(camera_params,light_img_directory,flat_image_directory,dark_im
                     fits_image.header['IMAGETYP']='DARK'
                 elif root==bias_image_directory:
                     fits_image.header['IMAGETYP']='BIAS'
-                
-                
-                fits_image.writeto(os.path.join(root,file.split('.')[0]+'.fits'))
-                
+                fits_image.writeto(os.path.join(root, file.split('.')[0] + '.fits'))
+
+
+def update_fits(fits_folder):
+
+    return
                 
 GUI= gui()
