@@ -3,6 +3,8 @@
 Created on Sun Apr  3 12:10:15 2022
 
 @author: mstew
+A function which converts .tiff files into that of fits files to be then used
+in the Astro2 Image Processor
 """
 
 import PySimpleGUI as sg
